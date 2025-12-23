@@ -1,6 +1,13 @@
 /**
- * Express webhook server for receiving inbound SMS from Twilio
- * Handles incoming messages and status updates
+ * @fileoverview Express webhook server for receiving inbound SMS from Twilio
+ *
+ * This module implements an Express HTTP server that handles Twilio webhook
+ * callbacks for inbound SMS/MMS messages and delivery status updates. It
+ * validates webhook signatures for security and stores messages locally.
+ *
+ * @module webhook-server
+ * @author Twilio MCP Team
+ * @license MIT
  */
 
 import express from 'express';
@@ -9,12 +16,29 @@ import { conversationStore } from './storage/conversation-store.js';
 import { messageStore } from './storage/message-store.js';
 import { config } from './config/env.js';
 
+/** Express application instance */
 const app = express();
 
 // Parse Twilio's URL-encoded payloads
 app.use(express.urlencoded({ extended: false }));
 
-// Health check endpoint
+/**
+ * Health check endpoint.
+ *
+ * @description
+ * Returns service status information for monitoring and load balancer health checks.
+ *
+ * @route GET /health
+ * @returns {Object} JSON object with status, service name, and timestamp
+ *
+ * @example
+ * // Response:
+ * // {
+ * //   "status": "ok",
+ * //   "service": "twilio-mcp-webhook",
+ * //   "timestamp": "2025-01-15T10:30:00.000Z"
+ * // }
+ */
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -23,7 +47,39 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Inbound SMS/MMS webhook
+/**
+ * Inbound SMS/MMS webhook handler.
+ *
+ * @description
+ * Receives inbound SMS/MMS messages from Twilio. This endpoint:
+ * 1. Validates the Twilio webhook signature for security
+ * 2. Extracts message content and media URLs
+ * 3. Finds or creates a conversation for the participants
+ * 4. Stores the message in the database
+ * 5. Updates conversation activity timestamp
+ * 6. Returns empty TwiML (no auto-reply)
+ *
+ * Twilio sends POST requests to this endpoint when messages arrive.
+ * The webhook URL must be configured in the Twilio console.
+ *
+ * @route POST /webhooks/twilio/sms
+ * @param {Object} req.body - Twilio webhook payload
+ * @param {string} req.body.MessageSid - Twilio message SID
+ * @param {string} req.body.From - Sender phone number
+ * @param {string} req.body.To - Recipient phone number (your Twilio number)
+ * @param {string} req.body.Body - Message content
+ * @param {string} req.body.NumMedia - Number of media attachments
+ * @param {string} req.body.MediaUrl0..N - Media URLs (for MMS)
+ * @returns {string} Empty TwiML response
+ *
+ * @example
+ * // Configure in Twilio Console:
+ * // Messaging > Phone Numbers > Your Number > Messaging Configuration
+ * // Webhook URL: https://your-domain.com/webhooks/twilio/sms
+ * // HTTP Method: POST
+ *
+ * @see {@link https://www.twilio.com/docs/messaging/guides/webhook-request|Twilio Webhook Request}
+ */
 app.post('/webhooks/twilio/sms', async (req, res): Promise<void> => {
   try {
     // Validate webhook signature
@@ -100,7 +156,32 @@ app.post('/webhooks/twilio/sms', async (req, res): Promise<void> => {
   }
 });
 
-// Message status callback webhook
+/**
+ * Message status callback webhook handler.
+ *
+ * @description
+ * Receives message status updates from Twilio. This endpoint:
+ * 1. Validates the Twilio webhook signature for security
+ * 2. Extracts status and error information
+ * 3. Updates the message status in the database
+ *
+ * Twilio sends POST requests to this endpoint when message status changes
+ * (queued → sent → delivered, or failed/undelivered with error codes).
+ *
+ * @route POST /webhooks/twilio/status
+ * @param {Object} req.body - Twilio status callback payload
+ * @param {string} req.body.MessageSid - Twilio message SID
+ * @param {string} req.body.MessageStatus - New status value
+ * @param {string} [req.body.ErrorCode] - Error code (for failed messages)
+ * @param {string} [req.body.ErrorMessage] - Error description
+ * @returns {number} HTTP 200 status
+ *
+ * @example
+ * // Configure in Twilio Console or when sending:
+ * // Status Callback URL: https://your-domain.com/webhooks/twilio/status
+ *
+ * @see {@link https://www.twilio.com/docs/messaging/guides/track-outbound-message-status|Track Outbound Message Status}
+ */
 app.post('/webhooks/twilio/status', async (req, res): Promise<void> => {
   try {
     // Validate webhook signature
@@ -138,7 +219,23 @@ app.post('/webhooks/twilio/status', async (req, res): Promise<void> => {
 });
 
 /**
- * Start the webhook server
+ * Start the webhook server.
+ *
+ * @description
+ * Starts the Express HTTP server on the configured port. Logs the
+ * webhook endpoint URLs for reference.
+ *
+ * @returns {void}
+ *
+ * @example
+ * import { startWebhookServer } from './webhook-server.js';
+ *
+ * // Start the server
+ * startWebhookServer();
+ * // Output:
+ * // Webhook server listening on port 3000
+ * // Inbound SMS endpoint: https://example.com/webhooks/twilio/sms
+ * // Status callback endpoint: https://example.com/webhooks/twilio/status
  */
 export function startWebhookServer(): void {
   const port = config.WEBHOOK_PORT;

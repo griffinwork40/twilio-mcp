@@ -1,6 +1,13 @@
 /**
- * MCP server initialization with tool registry
- * Main MCP server that exposes Twilio SMS tools
+ * @fileoverview MCP server initialization with tool registry
+ *
+ * This module defines the main MCP (Model Context Protocol) server that exposes
+ * Twilio SMS tools to AI clients. It registers all available tools and handles
+ * incoming tool call requests.
+ *
+ * @module server
+ * @author Twilio MCP Team
+ * @license MIT
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -17,9 +24,55 @@ import { createConversation } from './tools/create-conversation.js';
 import { getConversationThread } from './tools/get-conversation-thread.js';
 import { getMessageStatus } from './tools/get-message-status.js';
 
+/**
+ * TwilioMcpServer provides an MCP-compliant interface for Twilio SMS operations.
+ *
+ * @description
+ * This class encapsulates the MCP server that exposes Twilio SMS tools to AI clients.
+ * It supports the following tools:
+ * - `send_sms` - Send outbound SMS messages
+ * - `get_inbound_messages` - Query received messages
+ * - `create_conversation` - Create new conversation threads
+ * - `get_conversation_thread` - Retrieve conversation history
+ * - `get_message_status` - Check message delivery status
+ *
+ * The server communicates via stdio transport, making it compatible with
+ * AI clients like Claude Desktop and Claude Code.
+ *
+ * @example
+ * // Create and start the MCP server
+ * const server = new TwilioMcpServer();
+ * await server.start();
+ *
+ * @example
+ * // Configuration in Claude Desktop config.json
+ * {
+ *   "mcpServers": {
+ *     "twilio": {
+ *       "command": "node",
+ *       "args": ["/path/to/dist/index.js"],
+ *       "env": {
+ *         "TWILIO_ACCOUNT_SID": "ACxxxx",
+ *         "TWILIO_AUTH_TOKEN": "your-token",
+ *         "TWILIO_PHONE_NUMBER": "+1234567890"
+ *       }
+ *     }
+ *   }
+ * }
+ */
 export class TwilioMcpServer {
+  /** @private Internal MCP server instance */
   private server: Server;
 
+  /**
+   * Creates a new TwilioMcpServer instance.
+   *
+   * @description
+   * Initializes the underlying MCP server with the "twilio-mcp" identifier
+   * and sets up all tool handlers.
+   *
+   * @throws {Error} If environment variables are invalid (checked by tool modules)
+   */
   constructor() {
     this.server = new Server(
       {
@@ -36,6 +89,17 @@ export class TwilioMcpServer {
     this.setupToolHandlers();
   }
 
+  /**
+   * Registers MCP tool handlers for listing and calling tools.
+   *
+   * @description
+   * Sets up two request handlers:
+   * 1. ListToolsRequestSchema - Returns all available tools with their schemas
+   * 2. CallToolRequestSchema - Routes tool calls to appropriate handler functions
+   *
+   * @private
+   * @returns {void}
+   */
   private setupToolHandlers(): void {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -242,6 +306,21 @@ export class TwilioMcpServer {
     });
   }
 
+  /**
+   * Starts the MCP server with stdio transport.
+   *
+   * @description
+   * Establishes a stdio transport connection for communication with AI clients.
+   * Once started, the server listens for tool listing and tool call requests.
+   *
+   * @returns {Promise<void>} Resolves when the server is connected and ready
+   * @throws {Error} If the server fails to connect to the transport
+   *
+   * @example
+   * const server = new TwilioMcpServer();
+   * await server.start();
+   * // Server is now running and accepting requests via stdio
+   */
   async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
