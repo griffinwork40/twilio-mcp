@@ -1,93 +1,145 @@
 # Twilio MCP Server
 
-A Model Context Protocol (MCP) server for Twilio that enables AI-powered SMS messaging with intelligent conversation management.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-1.0-purple.svg)](https://modelcontextprotocol.io)
 
-## Features
+A Model Context Protocol (MCP) server that enables AI-powered SMS messaging with intelligent conversation management through Twilio's API. This server allows AI clients like Claude Desktop and Claude Code to send and receive SMS messages, manage conversation threads, and track message delivery status.
 
-- **Send SMS** - Send text messages via Twilio with automatic conversation threading
-- **Receive SMS** - Process inbound messages via webhooks with automatic storage
-- **Conversation Management** - Track and manage multi-turn SMS conversations
-- **Message Status** - Check delivery status of sent messages
-- **Thread Association** - Automatically link messages to conversation threads
-- **MMS Support** - Send and receive multimedia messages (optional)
+## ✨ Features
 
-## Installation
+- **📱 Send SMS** - Send text messages via Twilio with automatic conversation threading
+- **📥 Receive SMS** - Process inbound messages via webhooks with automatic storage
+- **💬 Conversation Management** - Track and manage multi-turn SMS conversations
+- **📊 Message Status** - Check delivery status of sent messages in real-time
+- **🔗 Thread Association** - Automatically link messages to conversation threads
+- **🖼️ MMS Support** - Send and receive multimedia messages (optional)
+- **💾 SQLite Persistence** - Local storage for offline access and message history
+- **🔒 Secure Webhooks** - Twilio signature validation on all incoming requests
+
+## 📋 Table of Contents
+
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+  - [Claude Desktop Integration](#claude-desktop-integration)
+  - [Claude Code Integration](#claude-code-integration)
+- [API Reference](#api-reference)
+  - [send_sms](#send_sms)
+  - [get_inbound_messages](#get_inbound_messages)
+  - [create_conversation](#create_conversation)
+  - [get_conversation_thread](#get_conversation_thread)
+  - [get_message_status](#get_message_status)
+- [Webhook Setup](#webhook-setup)
+- [Development](#development)
+- [Architecture](#architecture)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+## 🚀 Installation
+
+### Prerequisites
+
+- Node.js 18.0.0 or higher
+- npm or yarn
+- A Twilio account with:
+  - Account SID
+  - Auth Token
+  - Phone number (SMS-enabled)
+
+### Quick Start
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/your-org/twilio-mcp.git
 cd twilio-mcp
 
 # Install dependencies
 npm install
 
-# Build the project
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your Twilio credentials
+# Then build the project
 npm run build
 ```
 
-## Configuration
+## ⚙️ Configuration
 
-1. Copy the environment template:
+### Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `TWILIO_ACCOUNT_SID` | ✅ Yes | - | Twilio Account SID (starts with "AC") |
+| `TWILIO_AUTH_TOKEN` | ✅ Yes | - | Twilio Auth Token (32+ characters) |
+| `TWILIO_PHONE_NUMBER` | ✅ Yes | - | Your Twilio phone number in E.164 format |
+| `WEBHOOK_BASE_URL` | ✅ Yes | - | Public HTTPS URL for webhook callbacks |
+| `WEBHOOK_PORT` | No | `3000` | Port for the webhook HTTP server |
+| `DATABASE_PATH` | No | `./data/twilio.db` | SQLite database file path |
+| `LOG_LEVEL` | No | `info` | Logging level (debug, info, warn, error) |
+| `AUTO_CREATE_CONVERSATIONS` | No | `true` | Auto-create threads for new message pairs |
+| `ENABLE_AI_CONTEXT` | No | `true` | Enable AI context generation (reserved) |
+| `ENABLE_MMS` | No | `true` | Enable MMS multimedia message support |
+
+### Example `.env` File
 
 ```bash
-cp .env.example .env
-```
-
-2. Fill in your Twilio credentials in `.env`:
-
-```bash
-# Get these from https://console.twilio.com
+# Twilio Credentials (from https://console.twilio.com)
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_AUTH_TOKEN=your_auth_token_here_min_32_chars
 TWILIO_PHONE_NUMBER=+1234567890
 
-# Webhook configuration
+# Webhook Configuration
 WEBHOOK_PORT=3000
-WEBHOOK_BASE_URL=https://your-domain.com
+WEBHOOK_BASE_URL=https://your-ngrok-url.ngrok.io
 
-# Database path
+# Database
 DATABASE_PATH=./data/twilio.db
+
+# Optional Settings
+LOG_LEVEL=info
+AUTO_CREATE_CONVERSATIONS=true
+ENABLE_MMS=true
 ```
 
-## Setting Up Webhooks
+## 📖 Usage
 
-For the server to receive inbound SMS, you need to configure Twilio webhooks:
+### Claude Desktop Integration
 
-### Development (Using ngrok)
+Add the Twilio MCP server to your Claude Desktop configuration file:
 
-1. Install ngrok: https://ngrok.com/download
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-2. Start the webhook server:
-
-```bash
-npm run dev
+```json
+{
+  "mcpServers": {
+    "twilio": {
+      "command": "node",
+      "args": ["/absolute/path/to/twilio-mcp/dist/index.js"],
+      "env": {
+        "TWILIO_ACCOUNT_SID": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "TWILIO_AUTH_TOKEN": "your_auth_token_here",
+        "TWILIO_PHONE_NUMBER": "+1234567890",
+        "WEBHOOK_PORT": "3000",
+        "WEBHOOK_BASE_URL": "https://your-webhook-url.ngrok.io",
+        "DATABASE_PATH": "./data/twilio.db"
+      }
+    }
+  }
+}
 ```
 
-3. In another terminal, start ngrok:
+After saving, restart Claude Desktop to load the new MCP server.
 
-```bash
-ngrok http 3000
-```
+### Claude Code Integration
 
-4. Copy the HTTPS URL from ngrok (e.g., `https://abc123.ngrok.io`)
-
-5. Configure Twilio webhook:
-   - Go to https://console.twilio.com/us1/develop/phone-numbers/manage/incoming
-   - Select your phone number
-   - Under "Messaging Configuration":
-     - Webhook URL: `https://abc123.ngrok.io/webhooks/twilio/sms`
-     - HTTP Method: POST
-   - Under "Status Callback URL":
-     - URL: `https://abc123.ngrok.io/webhooks/twilio/status`
-   - Save
-
-### Production
-
-Deploy the webhook server to a production environment with HTTPS and configure the Twilio webhook URLs accordingly.
-
-## Usage with Claude Code
-
-Add this server to your Claude Code MCP configuration:
+For Claude Code, add the server to your MCP configuration:
 
 ```json
 {
@@ -100,35 +152,55 @@ Add this server to your Claude Code MCP configuration:
         "TWILIO_AUTH_TOKEN": "your_auth_token",
         "TWILIO_PHONE_NUMBER": "+1234567890",
         "WEBHOOK_PORT": "3000",
-        "WEBHOOK_BASE_URL": "https://your-webhook-url.com",
-        "DATABASE_PATH": "./data/twilio.db"
+        "WEBHOOK_BASE_URL": "https://your-ngrok-url.ngrok.io"
       }
     }
   }
 }
 ```
 
-## MCP Tools
+### Example Conversations with Claude
+
+Once configured, you can ask Claude to perform SMS operations:
+
+```
+"Send a text message to +1234567890 saying 'Hello from Claude!'"
+
+"Check if I have any new text messages"
+
+"What's the delivery status of my last sent message?"
+
+"Show me the conversation history with +1234567890"
+
+"Create a new conversation thread with +1234567890 and +1987654321"
+```
+
+## 📚 API Reference
 
 ### send_sms
 
-Send an SMS message via Twilio.
+Send an SMS message via Twilio with automatic conversation threading.
 
 **Parameters:**
-- `to` (required): Recipient phone number in E.164 format (+1234567890)
-- `message` (required): SMS content (1-1600 characters)
-- `from` (optional): Sender phone number (uses default if not provided)
-- `conversationId` (optional): UUID of existing conversation
 
-**Example:**
-```typescript
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `to` | string | ✅ | Recipient phone number in E.164 format |
+| `message` | string | ✅ | SMS content (1-1600 characters) |
+| `from` | string | No | Sender phone number (uses default if omitted) |
+| `conversationId` | string | No | UUID of existing conversation to link to |
+
+**Example Request:**
+
+```json
 {
   "to": "+1234567890",
-  "message": "Hello from Twilio MCP!"
+  "message": "Hello from Twilio MCP! This is a test message."
 }
 ```
 
-**Response:**
+**Example Response:**
+
 ```json
 {
   "messageSid": "SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
@@ -140,75 +212,170 @@ Send an SMS message via Twilio.
 }
 ```
 
+---
+
 ### get_inbound_messages
 
-Query received SMS/MMS messages from storage.
+Query received SMS/MMS messages from local storage with optional filters.
 
 **Parameters:**
-- `from` (optional): Filter by sender phone number
-- `to` (optional): Filter by recipient phone number
-- `conversationId` (optional): Filter by conversation UUID
-- `since` (optional): ISO 8601 timestamp to filter messages after this date
-- `limit` (optional): Maximum messages to return (default: 50)
 
-**Example:**
-```typescript
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `from` | string | No | Filter by sender phone number |
+| `to` | string | No | Filter by recipient phone number |
+| `conversationId` | string | No | Filter by conversation UUID |
+| `since` | string | No | ISO 8601 timestamp to filter messages after |
+| `limit` | number | No | Max messages to return (1-1000, default: 50) |
+
+**Example Request:**
+
+```json
 {
   "from": "+1234567890",
   "limit": 10
 }
 ```
 
+**Example Response:**
+
+```json
+{
+  "messages": [
+    {
+      "messageSid": "SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "from": "+1234567890",
+      "to": "+1987654321",
+      "body": "Hey, got your message!",
+      "timestamp": "2025-01-15T10:35:00.000Z",
+      "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "received",
+      "direction": "inbound"
+    }
+  ],
+  "totalCount": 1
+}
+```
+
+---
+
 ### create_conversation
 
-Initialize a new conversation thread.
+Initialize a new conversation thread between participants.
 
 **Parameters:**
-- `participants` (required): Array of phone numbers in E.164 format (min 2)
-- `metadata` (optional): Custom metadata object
 
-**Example:**
-```typescript
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `participants` | string[] | ✅ | Array of phone numbers in E.164 format (min 2) |
+| `metadata` | object | No | Custom metadata to attach |
+
+**Example Request:**
+
+```json
 {
   "participants": ["+1234567890", "+1987654321"],
   "metadata": {
-    "campaign": "support",
-    "priority": "high"
+    "campaign": "customer-support",
+    "priority": "high",
+    "ticketId": "TICKET-123"
   }
 }
 ```
+
+**Example Response:**
+
+```json
+{
+  "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+  "participants": ["+1234567890", "+1987654321"],
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "metadata": {
+    "campaign": "customer-support",
+    "priority": "high",
+    "ticketId": "TICKET-123"
+  }
+}
+```
+
+---
 
 ### get_conversation_thread
 
 Retrieve full conversation history with all messages.
 
 **Parameters:**
-- `conversationId` (required): UUID of the conversation
-- `includeContext` (optional): Include AI context summary (default: false)
 
-**Example:**
-```typescript
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `conversationId` | string | ✅ | UUID of the conversation |
+| `includeContext` | boolean | No | Include AI context summary (default: false) |
+
+**Example Request:**
+
+```json
 {
   "conversationId": "550e8400-e29b-41d4-a716-446655440000",
   "includeContext": true
 }
 ```
 
+**Example Response:**
+
+```json
+{
+  "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+  "participants": ["+1234567890", "+1987654321"],
+  "messages": [
+    {
+      "messageSid": "SMxxxxxxx",
+      "direction": "outbound",
+      "from": "+1987654321",
+      "to": "+1234567890",
+      "body": "Hello!",
+      "timestamp": "2025-01-15T10:30:00.000Z",
+      "status": "delivered"
+    },
+    {
+      "messageSid": "SMyyyyyyy",
+      "direction": "inbound",
+      "from": "+1234567890",
+      "to": "+1987654321",
+      "body": "Hi there! How can I help?",
+      "timestamp": "2025-01-15T10:31:00.000Z",
+      "status": "received"
+    }
+  ],
+  "context": {
+    "summary": "Conversation with 2 participants",
+    "lastActivity": "2025-01-15T10:31:00.000Z",
+    "messageCount": 2
+  }
+}
+```
+
+---
+
 ### get_message_status
 
 Check the delivery status of a sent message.
 
 **Parameters:**
-- `messageSid` (required): Twilio message SID
 
-**Example:**
-```typescript
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `messageSid` | string | ✅ | Twilio message SID (starts with SM or MM) |
+
+**Example Request:**
+
+```json
 {
   "messageSid": "SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
 
-**Response:**
+**Example Response (Delivered):**
+
 ```json
 {
   "messageSid": "SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
@@ -219,24 +386,92 @@ Check the delivery status of a sent message.
 }
 ```
 
-## Conversation Threading
+**Example Response (Failed):**
 
-The server automatically creates and manages conversation threads:
+```json
+{
+  "messageSid": "SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "status": "undelivered",
+  "errorCode": 30003,
+  "errorMessage": "Unreachable destination handset",
+  "timestamp": "2025-01-15T10:31:00.000Z",
+  "to": "+1234567890",
+  "from": "+1987654321"
+}
+```
 
-1. **Outbound Messages**: When sending an SMS:
-   - If `conversationId` is provided, the message is linked to that conversation
-   - If not provided, the server finds an existing conversation by participant pair
-   - If no conversation exists and `AUTO_CREATE_CONVERSATIONS=true`, a new one is created
+## 🌐 Webhook Setup
 
-2. **Inbound Messages**: When receiving an SMS via webhook:
-   - The server matches by participant pair (from/to numbers)
-   - If no conversation exists and `AUTO_CREATE_CONVERSATIONS=true`, a new one is created
-   - Messages are automatically stored and linked to the conversation
+For the server to receive inbound SMS messages, you need to configure Twilio webhooks.
 
-3. **Participant Matching**: Conversations are identified by normalized participant pairs:
-   - `[+1234567890, +1987654321]` matches the same conversation regardless of direction
+### Development (Using ngrok)
 
-## Architecture
+1. **Install ngrok:** https://ngrok.com/download
+
+2. **Start the webhook server:**
+   ```bash
+   npm run dev
+   ```
+
+3. **In another terminal, start ngrok:**
+   ```bash
+   ngrok http 3000
+   ```
+
+4. **Copy the HTTPS URL** from ngrok (e.g., `https://abc123.ngrok.io`)
+
+5. **Update your `.env`:**
+   ```bash
+   WEBHOOK_BASE_URL=https://abc123.ngrok.io
+   ```
+
+6. **Configure Twilio webhooks:**
+   - Go to [Twilio Console > Phone Numbers](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming)
+   - Select your phone number
+   - Under "Messaging Configuration":
+     - **Webhook URL:** `https://abc123.ngrok.io/webhooks/twilio/sms`
+     - **HTTP Method:** POST
+   - Under "Status Callback URL" (optional):
+     - **URL:** `https://abc123.ngrok.io/webhooks/twilio/status`
+   - Click Save
+
+### Production
+
+Deploy the webhook server to a production environment with HTTPS:
+
+1. Deploy to your hosting platform (AWS, GCP, Heroku, etc.)
+2. Configure SSL/TLS certificates
+3. Update `WEBHOOK_BASE_URL` to your production URL
+4. Update Twilio webhook URLs in the console
+
+## 🛠️ Development
+
+### Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Build TypeScript to dist/
+npm run build
+
+# Development mode with auto-reload
+npm run dev
+
+# Type checking (no emit)
+npm run lint
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Project Structure
 
 ```
 twilio-mcp/
@@ -259,62 +494,164 @@ twilio-mcp/
 │   │   └── get-message-status.ts
 │   └── types/
 │       └── models.ts            # TypeScript type definitions
-└── data/                        # SQLite database storage
+├── data/                        # SQLite database storage
+├── dist/                        # Compiled JavaScript output
+└── tests/                       # Test files
 ```
 
-## Development
+### Adding a New MCP Tool
 
-```bash
-# Run in development mode
-npm run dev
+1. **Create the tool file** in `src/tools/your-tool.ts`:
+   ```typescript
+   import { z } from 'zod';
+   
+   export const yourToolSchema = z.object({
+     // Define your input schema
+   });
+   
+   export type YourToolParams = z.infer<typeof yourToolSchema>;
+   
+   export async function yourTool(params: YourToolParams) {
+     const validated = yourToolSchema.parse(params);
+     // Implement your tool logic
+     return { /* response */ };
+   }
+   ```
 
-# Build TypeScript
-npm run build
+2. **Register in `src/server.ts`**:
+   - Add to `ListToolsRequestSchema` handler
+   - Add case to `CallToolRequestSchema` switch
 
-# Run tests
-npm test
+3. **Build and test:**
+   ```bash
+   npm run build
+   ```
 
-# Type check
-npm run lint
+### Database Schema Changes
+
+The server uses SQLite with no migration system. To modify the schema:
+
+1. Update schema in relevant store file
+2. Delete the database: `rm -rf data/twilio.db`
+3. Rebuild and restart to recreate tables
+
+## 🏗️ Architecture
+
+### Dual Server Design
+
+This project runs **two servers simultaneously**:
+
+1. **MCP Server** (stdio transport)
+   - Communicates with AI clients via stdio
+   - Exposes tools for SMS operations
+   - Handles tool registration and execution
+
+2. **Express Webhook Server** (HTTP)
+   - Receives inbound SMS from Twilio
+   - Processes delivery status callbacks
+   - Validates webhook signatures
+
+### Data Flow
+
+**Outbound SMS:**
+```
+AI Client → MCP Server → send_sms tool → Twilio API → Recipient
+                              ↓
+                        SQLite Storage
+                              ↑
+Twilio Status Callback → Webhook Server
 ```
 
-## Security
+**Inbound SMS:**
+```
+Sender → Twilio → Webhook Server → SQLite Storage
+                                         ↓
+                       AI Client ← MCP Server (query tools)
+```
 
-- **No Hardcoded Secrets**: All credentials are stored in environment variables
-- **Webhook Validation**: All Twilio webhooks are validated using signature verification
-- **Input Validation**: All tool inputs are validated using Zod schemas
-- **HTTPS Required**: Webhook endpoints must use HTTPS in production
+### Conversation Threading
 
-## Database
+Conversations are matched by **normalized participant pairs**:
+- Phone numbers sorted alphabetically → unique key
+- `[+15551234567, +15559876543]` → `+15551234567|+15559876543`
+- Bidirectional: A→B and B→A match the same conversation
 
-The server uses SQLite for storing conversations and messages:
+## 🔒 Security
 
-- **Conversations**: Thread metadata, participants, timestamps
-- **Messages**: SMS/MMS content, delivery status, media URLs
+### Best Practices Implemented
 
-Database file location: `./data/twilio.db` (configurable via `DATABASE_PATH`)
+- **No Hardcoded Secrets** - All credentials via environment variables
+- **Webhook Validation** - Twilio signature verification on every request
+- **Input Validation** - Zod schemas validate all tool inputs
+- **HTTPS Required** - Webhook endpoints require HTTPS in production
+- **E.164 Validation** - Phone number format validation prevents injection
+- **Parameterized Queries** - SQLite queries use parameters, not string concatenation
 
-## Environment Variables
+### Security Recommendations
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `TWILIO_ACCOUNT_SID` | Yes | - | Twilio Account SID (starts with AC) |
-| `TWILIO_AUTH_TOKEN` | Yes | - | Twilio Auth Token |
-| `TWILIO_PHONE_NUMBER` | Yes | - | Your Twilio phone number (E.164 format) |
-| `WEBHOOK_PORT` | No | 3000 | Port for webhook server |
-| `WEBHOOK_BASE_URL` | Yes | - | Public HTTPS URL for webhooks |
-| `DATABASE_PATH` | No | ./data/twilio.db | SQLite database file path |
-| `LOG_LEVEL` | No | info | Logging level (debug, info, warn, error) |
-| `AUTO_CREATE_CONVERSATIONS` | No | true | Auto-create conversations for new threads |
-| `ENABLE_AI_CONTEXT` | No | true | Enable AI context generation |
-| `ENABLE_MMS` | No | true | Enable MMS support |
+1. **Rotate Auth Tokens** regularly in the Twilio console
+2. **Use environment-specific databases** (dev/staging/prod)
+3. **Monitor webhook logs** for suspicious activity
+4. **Enable Twilio's built-in security features** (geo permissions, etc.)
 
-## License
+## 🐛 Troubleshooting
 
-MIT
+### Common Issues
 
-## Support
+**"Environment validation failed"**
+- Ensure all required env vars are set
+- Check `TWILIO_ACCOUNT_SID` starts with "AC"
+- Check `TWILIO_AUTH_TOKEN` is 32+ characters
+- Check phone number is E.164 format (+1234567890)
 
-For issues and questions:
-- Twilio Documentation: https://www.twilio.com/docs
-- MCP Documentation: https://modelcontextprotocol.io
+**"Invalid webhook signature"**
+- Ensure `WEBHOOK_BASE_URL` exactly matches ngrok URL
+- Check URL includes `https://` prefix
+- Restart the server after URL changes
+
+**"No conversation found and auto-creation is disabled"**
+- Set `AUTO_CREATE_CONVERSATIONS=true` in .env
+- Or manually create conversation first with `create_conversation`
+
+**Messages not appearing in get_inbound_messages**
+- Verify webhook URL is correctly configured in Twilio
+- Check ngrok is running and URL hasn't changed
+- Review webhook server logs for errors
+
+### Debugging Tips
+
+1. **Check ngrok dashboard:** http://localhost:4040
+2. **Review server logs** for webhook validation errors
+3. **Test webhook manually** with curl
+4. **Verify Twilio console** shows successful webhook deliveries
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🔗 Resources
+
+- [Twilio Documentation](https://www.twilio.com/docs)
+- [MCP Protocol Specification](https://modelcontextprotocol.io)
+- [Twilio Console](https://console.twilio.com)
+- [ngrok Documentation](https://ngrok.com/docs)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes with appropriate tests
+4. Run linting: `npm run lint`
+5. Run tests: `npm test`
+6. Commit your changes: `git commit -m "Add your feature"`
+7. Push to the branch: `git push origin feature/your-feature`
+8. Open a Pull Request
+
+### Code Style
+
+- TypeScript with strict mode
+- JSDoc comments on all public functions
+- Zod schemas for input validation
+- Follow existing patterns in the codebase
