@@ -274,9 +274,65 @@ npm run build
 # Run tests
 npm test
 
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
 # Type check
 npm run lint
 ```
+
+## Testing
+
+The project includes a comprehensive test suite using Jest with TypeScript support.
+
+### Test Structure
+
+```
+tests/
+├── setup.ts                    # Test environment setup
+├── config/
+│   └── env.test.ts             # Environment configuration validation tests
+├── services/
+│   └── twilio-client.test.ts   # Twilio client service tests
+├── storage/
+│   ├── conversation-store.test.ts  # Conversation persistence tests
+│   └── message-store.test.ts       # Message persistence tests
+├── tools/
+│   ├── send-sms.test.ts            # SMS sending schema validation
+│   ├── create-conversation.test.ts # Conversation creation tests
+│   ├── get-conversation-thread.test.ts
+│   ├── get-inbound-messages.test.ts
+│   └── get-message-status.test.ts
+└── webhook-server.test.ts      # Webhook endpoint tests
+```
+
+### What's Tested
+
+- **Schema Validation**: All MCP tool input schemas are tested for valid/invalid inputs
+- **Storage Operations**: SQLite conversation and message stores (CRUD operations)
+- **Webhook Handlers**: Inbound SMS and status callback endpoints with signature validation
+- **Environment Config**: All environment variable validation rules
+- **Twilio Client**: Client instantiation and method signatures
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Watch mode for development
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Test Environment
+
+Tests use an in-memory SQLite database and mock environment variables configured in `tests/setup.ts`.
 
 ## Security
 
